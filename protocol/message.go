@@ -159,6 +159,13 @@ func (m *Message) ReadFrom(reader io.Reader) (int64, error) {
 	return int64(10 + totalLength), nil
 }
 
+func (m *Message) PutMeta(key, value string) {
+	if m.Metadata == nil {
+		m.Metadata = make(map[string]string)
+	}
+	m.Metadata[key] = value
+}
+
 func encodeMetadata(metadata map[string]string, buffer *bytes.Buffer) {
 	length := make([]byte, 4)
 	for key, value := range metadata {
