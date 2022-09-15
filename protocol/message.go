@@ -3,6 +3,7 @@ package protocol
 import (
 	"bytes"
 	"encoding/binary"
+	"errors"
 	"io"
 )
 
@@ -41,6 +42,10 @@ type Message struct {
 	Data          []byte            // Data 序列化后的数据
 	buf           []byte
 }
+
+var (
+	ErrMetadataKeyValueMissing = errors.New("incomplete key value pair in metadata")
+)
 
 func (h *Header) CheckMagicNumber() bool {
 	return h[0] == magicNumber
@@ -131,7 +136,10 @@ func (m *Message) ReadFrom(reader io.Reader) (int64, error) {
 	index += sml
 	ml := binary.BigEndian.Uint32(buffer[index : index+4])
 	index += 4
-	m.Metadata = decodeMetadata(buffer[index : index+ml])
+	m.Metadata, err = decodeMetadata(buffer[index : index+ml])
+	if err != nil {
+		return int64(10 + index), err
+	}
 	index += ml
 	dl := binary.BigEndian.Uint32(buffer[index : index+4])
 	index += 4
@@ -151,20 +159,28 @@ func encodeMetadata(metadata map[string]string, buffer *bytes.Buffer) {
 	}
 }
 
-func decodeMetadata(buffer []byte) map[string]string {
+func decodeMetadata(buffer []byte) (map[string]string, error) {
 	metadata := make(map[string]string)
 	var i uint32 = 0
-	for {
+	n := uint32(len(buffer))
+	for i < n {
 		kl := binary.BigEndian.Uint32(buffer[i : i+4])
 		i += 4
+		if i+kl > n {
+			return metadata, ErrMetadataKeyValueMissing
+		}
 		key := string(buffer[i : i+kl])
 		i += kl
 		vl := binary.BigEndian.Uint32(buffer[i : i+4])
 		i += 4
+		if i+vl > n {
+			return metadata, ErrMetadataKeyValueMissing
+		}
 		value := string(buffer[i : i+vl])
 		i += vl
 		metadata[key] = value
 	}
+	return metadata, nil
 }
 
 func writeString(writer io.Writer, s string, l uint32, buf []byte) (int64, error) {
