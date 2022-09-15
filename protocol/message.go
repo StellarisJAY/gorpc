@@ -53,7 +53,7 @@ func (h *Header) CheckMagicNumber() bool {
 
 func (h *Header) MessageType() MessageType {
 	// 首部的第二个字节的高4位作为消息类型
-	return MessageType(h[1] & 0xf0)
+	return MessageType(h[1]) >> 4
 }
 
 func (h *Header) SerializeType() SerializeType {
@@ -63,6 +63,18 @@ func (h *Header) SerializeType() SerializeType {
 
 func (h *Header) Seq() uint64 {
 	return binary.BigEndian.Uint64(h[2:])
+}
+
+func (h *Header) SetSeq(seq uint64) {
+	binary.BigEndian.PutUint64(h[2:], seq)
+}
+
+func (h *Header) SetMessageType(messageType MessageType) {
+	h[1] = h[1]&0x0f | (byte(messageType) << 4)
+}
+
+func (h *Header) SetSerializeType(serializeType SerializeType) {
+	h[1] = h[1]&0xf0 | byte(serializeType)
 }
 
 func (m *Message) WriteTo(writer io.Writer) (int64, error) {
